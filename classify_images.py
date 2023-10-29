@@ -38,7 +38,7 @@ class Transform(object):
         label = sample[1]
 
         transform = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Resize(size=(32, 32), antialias=True),
+                                        transforms.Resize(size=(64, 64), antialias=True),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         return (transform(image), label)
@@ -48,10 +48,10 @@ batch_size = 4
 classes = ['Mixture', 'NoGas', 'Perfume', 'Smoke']
 
 trainset = ImageDataset("dataset/train/images", classes, transform=Transform())
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
+trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
 
 testset = ImageDataset("dataset/test/images", classes, transform=Transform())
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
 
 
 def imshow(img):
@@ -81,15 +81,15 @@ class Net(nn.Module):
 	# Max pooling over a (2, 2) window
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(16 * 5 * 5, 120) # 5x5 from image dimension
+        self.fc1 = nn.Linear(16 * 13 * 13, 120) # 5x5 from image dimension
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc3 = nn.Linear(84, 4)
 
     def forward(self, x):
 	# the forward propagation algorithm
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        x = x.view(-1, 16 * 13 * 13)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -101,7 +101,7 @@ net = Net()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-for epoch in range(2):  # loop over the dataset multiple times
+for epoch in range(4):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -180,4 +180,3 @@ with torch.no_grad():
 for classname, correct_count in correct_pred.items():
     accuracy = 100 * float(correct_count) / total_pred[classname]
     print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
-
