@@ -1,5 +1,6 @@
 from PIL import Image
 import matplotlib.pyplot as plt
+import torchvision
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import torch.nn.functional as F
@@ -10,29 +11,40 @@ import torch.optim as optim
 import pandas as pd
 
 
-class SensorDataDataset(Dataset):
-    def __init__(self, data, classes, transform=None):
+class MultimodalDataset(Dataset):
+    def __init__(self, images_path, sensor_data, classes, transform=None):
         self.transform = transform
-        self.data = data
+        self.images_path = images_path
+        self.sensor_data = sensor_data
         self.classes = classes
 
     def __len__(self):
-        return len(self.data)
+        return len(self.sensor_data)
     
     def __getitem__(self, idx):
-        dat = np.array(self.data[idx][1:8], dtype=np.float32)
-        sample = (dat, self.classes.index(self.data[idx][8]))
+        sensor_dat = np.array(self.sensor_data[idx][1:8], dtype=np.float32)
+        item_class = self.sensor_data[idx][8]
+        image_name = self.sensor_data[idx][9] + '.png'
+        image = Image.open(f'{self.images_path}/{item_class}/{image_name}')
+        sample = (sensor_dat, image, self.classes.index(item_class))
+
         if self.transform:
             sample = self.transform(sample)
         
         return sample
     
-
+    
 class Transform(object):
     def __call__(self, sample):
-        transform = transforms.ToTensor()
-        return (torch.from_numpy(sample[0]), sample[1])
+        sensor_data = sample[0]
+        image = sample[1]
+        label = sample[2]
 
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Resize(size=(64, 64), antialias=True),
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        return (torch.from_numpy(sensor_data), transform(image), label)
 
 batch_size = 4
 classes = ['Mixture', 'NoGas', 'Perfume', 'Smoke']
@@ -61,59 +73,85 @@ np.random.shuffle(train_dataset)
 test_dataset = np.concatenate((data_nogas_test, data_perfume_test, data_smoke_test, data_mixture_test))
 np.random.shuffle(test_dataset)
 
-print(train_dataset.shape)
-print(test_dataset.shape)
 
-
-trainset = SensorDataDataset(train_dataset, classes, transform=None)
+trainset = MultimodalDataset("data/images", train_dataset, classes, transform=Transform())
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
 
-testset = SensorDataDataset(test_dataset, classes, transform=None)
+testset = MultimodalDataset("data/images", test_dataset, classes, transform=Transform())
 testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
+
+def imshow(img):
+    img = img / 2 + 0.5     # unnormalize
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.show()
 
 
 # get some random training images
 dataiter = iter(trainloader)
-images, labels = next(dataiter)
+sensors_data, images, labels = next(dataiter)
 
+# show images
+# imshow(torchvision.utils.make_grid(images))
 # print labels
 print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
 
 
 class Net(nn.Module):
     def __init__(self):
-	# initialize the network
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(7, 64)
-        self.fc2 = nn.Linear(64, 128)
-        self.fc3 = nn.Linear(128, 4)
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5) 
+        self.fc1 = nn.Linear(16 * 13 * 13, 120)
+        self.fc2 = nn.Linear(120, 84)
+        # self.fc3 = nn.Linear(84, 4)
 
+        self.fc1_sensor = nn.Linear(7, 64)
+        self.fc2_sensor = nn.Linear(64, 128)
+        # self.fc3_sensor = nn.Linear(128, 4)
 
-    def forward(self, x):
-	# the forward propagation algorithm
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        self.fusion = nn.Linear(212, 106)
+        self.fc = nn.Linear(106, 4)
+        # self.dropout = nn.Dropout(0.1)
+
+    def forward(self, sensor_data, image):
+        image = self.pool(F.relu(self.conv1(image)))
+        image = self.pool(F.relu(self.conv2(image)))
+        image = image.view(-1, 16 * 13 * 13)
+        image = F.relu(self.fc1(image))
+        image = F.relu(self.fc2(image))
+        # image = self.fc3(image)
+
+        sensor_data = F.relu(self.fc1_sensor(sensor_data))
+        sensor_data = F.relu(self.fc2_sensor(sensor_data))
+        # sensor_data = self.fc3_sensor(sensor_data)
+
+        combined = torch.cat([sensor_data, image], dim=1)
+        fused = F.relu(self.fusion(combined))
+        out = self.fc(fused)
+
+        return out
 
 
 net = Net()
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(net.parameters(), lr=0.001)
+# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 for epoch in range(4):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data
+        sensor, image, labels = data
 
         # zero the parameter gradients
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        outputs = net(inputs)
+        outputs = net(sensor, image)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -126,17 +164,19 @@ for epoch in range(4):  # loop over the dataset multiple times
 
 print('Finished Training')
 
-PATH = './gas_sensor_net.pth'
+PATH = './multimodal_net.pth'
 torch.save(net.state_dict(), PATH)
 
 dataiter = iter(testloader)
-images, labels = next(dataiter)
+sensors_data, images, labels = next(dataiter)
 
+# print images
+# imshow(torchvision.utils.make_grid(images))
 print('GroundTruth: ', ' '.join(f'{classes[labels[j]]:5s}' for j in range(4)))
 
 net = Net()
 net.load_state_dict(torch.load(PATH))
-outputs = net(images)
+outputs = net(sensors_data, images)
 
 _, predicted = torch.max(outputs, 1)
 
@@ -148,15 +188,15 @@ total = 0
 # since we're not training, we don't need to calculate the gradients for our outputs
 with torch.no_grad():
     for data in testloader:
-        images, labels = data
+        sensors_data, images, labels = data
         # calculate outputs by running images through the network
-        outputs = net(images)
+        outputs = net(sensors_data, images)
         # the class with the highest energy is what we choose as prediction
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-print(f'Accuracy of the network on the {total} test images: {100 * correct // total} %')
+print(f'Accuracy of the network on the {total} test data: {100 * correct // total} %')
 
 # prepare to count predictions for each class
 correct_pred = {classname: 0 for classname in classes}
@@ -165,8 +205,8 @@ total_pred = {classname: 0 for classname in classes}
 # again no gradients needed
 with torch.no_grad():
     for data in testloader:
-        images, labels = data
-        outputs = net(images)
+        sensors_data, images, labels = data
+        outputs = net(sensors_data, images)
         _, predictions = torch.max(outputs, 1)
         # collect the correct predictions for each class
         for label, prediction in zip(labels, predictions):
@@ -180,33 +220,3 @@ for classname, correct_count in correct_pred.items():
     accuracy = 100 * float(correct_count) / total_pred[classname]
     print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
 
-
-# from sklearn.neural_network import MLPClassifier
-# import numpy as np
-# import pandas as pd
-
-# if __name__ == '__main__':
-#     model = MLPClassifier()
-#     train_classes = train_dataset[:, 8]
-#     for i, x in enumerate(train_classes):
-#         train_classes[i] = classes.index(x)
-
-#     print(train_classes)
-#     print(train_classes.shape)
-#     train_classes = np.array(train_classes, dtype=int)
-#     train_dataset = np.array(train_dataset[:, 1:8], dtype=np.float32)
-#     test_dataset_in = np.array(test_dataset[:, 1:8], dtype=np.float32)
-#     test_classes = test_dataset[:, 8]
-#     for i, x in enumerate(test_classes):
-#         test_classes[i] = classes.index(x)
-
-#     model = model.fit(train_dataset, train_classes)
-
-#     errors = 0
-#     for i, sample in enumerate(test_dataset_in):
-#         prediction = model.predict([sample])
-#         if prediction != test_classes[i]:
-#             errors += 1
-    
-#     print(errors)
-#     print((len(test_dataset_in) - errors) / len(test_dataset_in))
