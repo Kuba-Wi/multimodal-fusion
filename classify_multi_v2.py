@@ -118,22 +118,22 @@ class Net(nn.Module):
         # self.dropout = nn.Dropout(0.1)
 
     def forward(self, sensor_data, image):
-        # image = self.pool(F.relu(self.conv1(image)))
-        # image = self.pool(F.relu(self.conv2(image)))
-        # image = image.view(-1, 16 * 13 * 13)
-        # image = F.relu(self.fc1(image))
-        # image = F.relu(self.fc2(image))
-        # # image = self.fc3(image)
-        # # out = image
+        image = self.pool(F.relu(self.conv1(image)))
+        image = self.pool(F.relu(self.conv2(image)))
+        image = image.view(-1, 16 * 13 * 13)
+        image = F.relu(self.fc1(image))
+        image = F.relu(self.fc2(image))
+        # image = self.fc3(image)
+        # out = image
 
         sensor_data = F.relu(self.fc1_sensor(sensor_data))
         sensor_data = F.relu(self.fc2_sensor(sensor_data))
-        sensor_data = self.fc3_sensor(sensor_data)
-        out = sensor_data
+        # sensor_data = self.fc3_sensor(sensor_data)
+        # out = sensor_data
 
-        # combined = torch.cat([sensor_data, image], dim=1)
-        # fused = F.relu(self.fusion(combined))
-        # out = self.fc(fused)
+        combined = torch.cat([sensor_data, image], dim=1)
+        fused = F.relu(self.fusion(combined))
+        out = self.fc(fused)
 
         return out
 
