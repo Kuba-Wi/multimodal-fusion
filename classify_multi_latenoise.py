@@ -75,6 +75,9 @@ np.random.shuffle(train_dataset)
 test_dataset = np.concatenate((data_nogas_test, data_perfume_test, data_smoke_test, data_mixture_test))
 np.random.shuffle(test_dataset)
 
+gaussian_noise = np.random.normal(0, 2, test_dataset.shape[0])
+for i in range(len(test_dataset)):
+    test_dataset[i][1] += gaussian_noise[i]
 
 trainset = MultimodalDataset("data/images", train_dataset, classes, transform=Transform())
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
@@ -96,7 +99,7 @@ sensors_data, images, labels = next(dataiter)
 # show images
 # imshow(torchvision.utils.make_grid(images))
 # print labels
-# print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
+print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
 
 
 class Net(nn.Module):
@@ -105,43 +108,40 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(3 + 16 * 13 * 13, 184)
-        self.fc2 = nn.Linear(184, 212)
-        self.fc3 = nn.Linear(212, 106)
-        self.fc4 = nn.Linear(106, 4)
+        self.fc1 = nn.Linear(16 * 13 * 13, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 4)
 
         self.fc1_sensor = nn.Linear(3, 64)
         self.fc2_sensor = nn.Linear(64, 128)
         self.fc3_sensor = nn.Linear(128, 4)
 
-        self.fusion = nn.Linear(212, 106)
-        self.fc = nn.Linear(106, 4)
+        # self.fusion = nn.Linear(212, 106)
+        self.fc = nn.Linear(8, 4)
         # self.dropout = nn.Dropout(0.1)
 
     def forward(self, sensor_data, image):
         image = self.pool(F.relu(self.conv1(image)))
         image = self.pool(F.relu(self.conv2(image)))
         image = image.view(-1, 16 * 13 * 13)
-        # image = F.relu(self.fc1(image))
-        # image = F.relu(self.fc2(image))
-        # image = self.fc3(image)
+        image = F.relu(self.fc1(image))
+        image = F.relu(self.fc2(image))
+        image = self.fc3(image)
         # out = image
 
-        # sensor_data = F.relu(self.fc1_sensor(sensor_data))
-        # sensor_data = F.relu(self.fc2_sensor(sensor_data))
-        # sensor_data = self.fc3_sensor(sensor_data)
+        sensor_data = F.relu(self.fc1_sensor(sensor_data))
+        sensor_data = F.relu(self.fc2_sensor(sensor_data))
+        sensor_data = self.fc3_sensor(sensor_data)
         # out = sensor_data
 
         combined = torch.cat([sensor_data, image], dim=1)
-        combined = F.relu(self.fc1(combined))
-        combined = F.relu(self.fc2(combined))
-        combined = F.relu(self.fc3(combined))
-        out = self.fc4(combined)
+        # fused = F.relu(self.fusion(combined))
+        out = self.fc(combined)
 
         return out
 
 results = []
-with open("results_early.txt", "w") as file:
+with open("results_late_noise.txt", "w") as file:
     for i  in range(50):
         net = Net()
 
@@ -211,7 +211,7 @@ with open("results_early.txt", "w") as file:
 
     avg = sum(results) / len(results)
     file.write(f"Avg: {avg}\n")
-    
+
 
 # # prepare to count predictions for each class
 # correct_pred = {classname: 0 for classname in classes}
@@ -234,3 +234,4 @@ with open("results_early.txt", "w") as file:
 # for classname, correct_count in correct_pred.items():
 #     accuracy = 100 * float(correct_count) / total_pred[classname]
 #     print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
+

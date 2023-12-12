@@ -137,90 +137,97 @@ class Net(nn.Module):
 
         return out
 
+results = []
+with open("results_image.txt", "w") as file:
+    for i  in range(50):
+        net = Net()
 
-net = Net()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(net.parameters(), lr=0.001)
+        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(net.parameters(), lr=0.001)
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        for epoch in range(4):  # loop over the dataset multiple times
 
-for epoch in range(4):  # loop over the dataset multiple times
-
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get the inputs; data is a list of [inputs, labels]
-        sensor, image, labels = data
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        outputs = net(sensor, image)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        # print statistics
-        running_loss += loss.item()
-        if i % 100 == 99:    # print every 100 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
             running_loss = 0.0
+            for i, data in enumerate(trainloader, 0):
+                # get the inputs; data is a list of [inputs, labels]
+                sensor, image, labels = data
 
-print('Finished Training')
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-PATH = './multimodal_net.pth'
-torch.save(net.state_dict(), PATH)
+                # forward + backward + optimize
+                outputs = net(sensor, image)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
 
-dataiter = iter(testloader)
-sensors_data, images, labels = next(dataiter)
+                # print statistics
+                running_loss += loss.item()
+                if i % 100 == 99:    # print every 100 mini-batches
+                    print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
+                    running_loss = 0.0
 
-# print images
-# imshow(torchvision.utils.make_grid(images))
-print('GroundTruth: ', ' '.join(f'{classes[labels[j]]:5s}' for j in range(4)))
+        print('Finished Training')
 
-net = Net()
-net.load_state_dict(torch.load(PATH))
-outputs = net(sensors_data, images)
+        PATH = './multimodal_net.pth'
+        torch.save(net.state_dict(), PATH)
 
-_, predicted = torch.max(outputs, 1)
+        dataiter = iter(testloader)
+        sensors_data, images, labels = next(dataiter)
 
-print('Predicted: ', ' '.join(f'{classes[predicted[j]]:5s}'
-                              for j in range(4)))
+        # print images
+        # imshow(torchvision.utils.make_grid(images))
+        print('GroundTruth: ', ' '.join(f'{classes[labels[j]]:5s}' for j in range(4)))
 
-correct = 0
-total = 0
-# since we're not training, we don't need to calculate the gradients for our outputs
-with torch.no_grad():
-    for data in testloader:
-        sensors_data, images, labels = data
-        # calculate outputs by running images through the network
+        net = Net()
+        net.load_state_dict(torch.load(PATH))
         outputs = net(sensors_data, images)
-        # the class with the highest energy is what we choose as prediction
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
 
-print(f'Accuracy of the network on the {total} test data: {100 * correct // total} %')
+        _, predicted = torch.max(outputs, 1)
 
-# prepare to count predictions for each class
-correct_pred = {classname: 0 for classname in classes}
-total_pred = {classname: 0 for classname in classes}
+        print('Predicted: ', ' '.join(f'{classes[predicted[j]]:5s}'
+                                    for j in range(4)))
 
-# again no gradients needed
-with torch.no_grad():
-    for data in testloader:
-        sensors_data, images, labels = data
-        outputs = net(sensors_data, images)
-        _, predictions = torch.max(outputs, 1)
-        # collect the correct predictions for each class
-        for label, prediction in zip(labels, predictions):
-            if label == prediction:
-                correct_pred[classes[label]] += 1
-            total_pred[classes[label]] += 1
+        correct = 0
+        total = 0
+        # since we're not training, we don't need to calculate the gradients for our outputs
+        with torch.no_grad():
+            for data in testloader:
+                sensors_data, images, labels = data
+                # calculate outputs by running images through the network
+                outputs = net(sensors_data, images)
+                # the class with the highest energy is what we choose as prediction
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        print(f'Accuracy of the network on the {total} test data: {100 * correct // total} %')
+        results.append(100 * correct // total)
+        file.write(f"{results[-1]}\n")
+
+    avg = sum(results) / len(results)
+    file.write(f"Avg: {avg}\n")
 
 
-# print accuracy for each class
-for classname, correct_count in correct_pred.items():
-    accuracy = 100 * float(correct_count) / total_pred[classname]
-    print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
+# # prepare to count predictions for each class
+# correct_pred = {classname: 0 for classname in classes}
+# total_pred = {classname: 0 for classname in classes}
 
+# # again no gradients needed
+# with torch.no_grad():
+#     for data in testloader:
+#         sensors_data, images, labels = data
+#         outputs = net(sensors_data, images)
+#         _, predictions = torch.max(outputs, 1)
+#         # collect the correct predictions for each class
+#         for label, prediction in zip(labels, predictions):
+#             if label == prediction:
+#                 correct_pred[classes[label]] += 1
+#             total_pred[classes[label]] += 1
+
+
+# # print accuracy for each class
+# for classname, correct_count in correct_pred.items():
+#     accuracy = 100 * float(correct_count) / total_pred[classname]
+#     print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')

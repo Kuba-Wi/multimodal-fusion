@@ -75,6 +75,9 @@ np.random.shuffle(train_dataset)
 test_dataset = np.concatenate((data_nogas_test, data_perfume_test, data_smoke_test, data_mixture_test))
 np.random.shuffle(test_dataset)
 
+gaussian_noise = np.random.normal(0, 2, test_dataset.shape[0])
+for i in range(len(test_dataset)):
+    test_dataset[i][1] += gaussian_noise[i]
 
 trainset = MultimodalDataset("data/images", train_dataset, classes, transform=Transform())
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
@@ -141,7 +144,7 @@ class Net(nn.Module):
         return out
 
 results = []
-with open("results_early.txt", "w") as file:
+with open("results_early_noise.txt", "w") as file:
     for i  in range(50):
         net = Net()
 
