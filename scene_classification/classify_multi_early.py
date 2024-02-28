@@ -12,19 +12,19 @@ import pandas as pd
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, images_path, sensor_data, classes, transform=None):
+    def __init__(self, images_path, audio_data, classes, transform=None):
         self.transform = transform
         self.images_path = images_path
-        self.sensor_data = sensor_data
+        self.audio_data = audio_data
         self.classes = classes
 
     def __len__(self):
-        return len(self.sensor_data)
+        return len(self.audio_data)
     
     def __getitem__(self, idx):
-        sensor_dat = np.array(self.sensor_data[idx][1:11], dtype=np.float32)
-        item_class = self.sensor_data[idx][106]
-        image_name = self.sensor_data[idx][0]
+        sensor_dat = np.array(self.audio_data[idx][1:11], dtype=np.float32)
+        item_class = self.audio_data[idx][106]
+        image_name = self.audio_data[idx][0]
         image = Image.open(f'{image_name}')
         sample = (sensor_dat, image, self.classes.index(item_class))
 
@@ -36,7 +36,7 @@ class MultimodalDataset(Dataset):
     
 class Transform(object):
     def __call__(self, sample):
-        sensor_data = sample[0]
+        audio_data = sample[0]
         image = sample[1]
         label = sample[2]
 
@@ -44,7 +44,7 @@ class Transform(object):
                                         transforms.Resize(size=(32, 32), antialias=True),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-        return (torch.from_numpy(sensor_data), transform(image), label)
+        return (torch.from_numpy(audio_data), transform(image), label)
 
 batch_size = 4
 classes = ['beach', 'city', 'classroom', 'football-match', 'forest', 'jungle', 'restaurant', 'river', 'grocery-store']
@@ -92,12 +92,12 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(340, 170)
         self.fc4 = nn.Linear(170, 9)
 
-    def forward(self, sensor_data, image):
+    def forward(self, audio_data, image):
         image = self.pool(F.relu(self.conv1(image)))
         image = self.pool(F.relu(self.conv2(image)))
         image = image.view(-1, 16 * 5 * 5)
 
-        combined = torch.cat([sensor_data, image], dim=1)
+        combined = torch.cat([audio_data, image], dim=1)
         combined = F.relu(self.fc1(combined))
         combined = F.relu(self.fc2(combined))
         combined = F.relu(self.fc3(combined))
