@@ -112,10 +112,7 @@ class Net(nn.Module):
         self.fc1_sensor = nn.Linear(3, 64)
         self.fc2_sensor = nn.Linear(64, 128)
         self.fc3_sensor = nn.Linear(128, 4)
-
-        # self.fusion = nn.Linear(212, 106)
         self.fc = nn.Linear(8, 4)
-        # self.dropout = nn.Dropout(0.1)
 
     def forward(self, sensor_data, image):
         image = self.pool(F.relu(self.conv1(image)))
@@ -124,15 +121,12 @@ class Net(nn.Module):
         image = F.relu(self.fc1(image))
         image = F.relu(self.fc2(image))
         image = self.fc3(image)
-        # out = image
 
         sensor_data = F.relu(self.fc1_sensor(sensor_data))
         sensor_data = F.relu(self.fc2_sensor(sensor_data))
         sensor_data = self.fc3_sensor(sensor_data)
-        # out = sensor_data
 
         combined = torch.cat([sensor_data, image], dim=1)
-        # fused = F.relu(self.fusion(combined))
         out = self.fc(combined)
 
         return out

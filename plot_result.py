@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-FILENAME = 'results_late'
+FILENAME = 'results_sensors'
 result = []
 with open(FILENAME + '.txt') as f:
     try:
