@@ -52,10 +52,19 @@ classes = [s.upper() for s in classes]
 
 dataset = np.array(pd.read_csv('dataset.csv', header=None))
 dataset = dataset[1:]
-np.random.shuffle(dataset)
 
-train_dataset = dataset[:(int(dataset.shape[0] * 0.8))]
-test_dataset = dataset[(int(dataset.shape[0] * 0.8)):]
+train_dataset = []
+test_dataset = []
+for cls in classes:
+    x = [v for v in dataset if v[-1] == cls]
+    np.random.shuffle(x)
+    for line in x[:(int(0.8 * len(x)))]:
+        train_dataset.append(line)
+    for line in x[(int(0.8 * len(x))):]:
+        test_dataset.append(line)
+
+train_dataset = np.array(train_dataset)
+test_dataset = np.array(test_dataset)
 
 trainset = MultimodalDataset("images_orginal", train_dataset, classes, transform=Transform())
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
