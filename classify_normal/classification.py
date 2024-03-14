@@ -1,57 +1,33 @@
-from PIL import Image
-import matplotlib.pyplot as plt
-import torchvision
-from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
-import torch.nn.functional as F
 import torch
+import torchvision
+import torchvision.transforms as transforms
 import torch.nn as nn
-import numpy as np
+import torch.nn.functional as F
 import torch.optim as optim
+import matplotlib.pyplot as plt
+import numpy as np
+import math
 
-import os
 
-
-class ImageDataset(Dataset):
-    def __init__(self, dataset_path, images_dirs, transform=None):
-        self.transform = transform
-        self.images_paths = []
-        for i, dir_name in enumerate(images_dirs):
-            dir_path = os.path.join(dataset_path, dir_name)
-            for img_name in os.listdir(dir_path):
-                self.images_paths.append((os.path.join(dir_path, img_name), i))
-
-    def __len__(self):
-        return len(self.images_paths)
-    
-    def __getitem__(self, idx):
-        sample = (Image.open(self.images_paths[idx][0]), self.images_paths[idx][1])
-        if self.transform:
-            sample = self.transform(sample)
-        
-        return sample
-    
-
-class Transform(object):
-    def __call__(self, sample):
-        image = sample[0]
-        label = sample[1]
-
-        transform = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Resize(size=(64, 64), antialias=True),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-        return (transform(image), label)
-
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 batch_size = 4
-classes = ['Mixture', 'NoGas', 'Perfume', 'Smoke']
 
-trainset = ImageDataset("dataset/train/images", classes, transform=Transform())
-trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=transform)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                          shuffle=True, num_workers=2)
 
-testset = ImageDataset("dataset/test/images", classes, transform=Transform())
-testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
+testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                       download=True, transform=transform)
+testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                         shuffle=False, num_workers=2)
+
+classes = ('Mixture', 'NoGas', 'Perfume', 'Smoke')
+
+print(trainset[0][0].size())
 
 
 def imshow(img):
@@ -71,6 +47,38 @@ imshow(torchvision.utils.make_grid(images))
 print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
 
 
+# class Net(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.network = nn.Sequential(
+#             nn.Conv2d(3, 32, kernel_size=3, padding=1),
+#             nn.ReLU(),
+#             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.MaxPool2d(2, 2), # output: 64 x 16 x 16
+
+#             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.MaxPool2d(2, 2), # output: 128 x 8 x 8
+
+#             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.MaxPool2d(2, 2), # output: 256 x 4 x 4
+
+#             nn.Flatten(), 
+#             nn.Linear(256*4*4, 1024),
+#             nn.ReLU(),
+#             nn.Linear(1024, 512),
+#             nn.ReLU(),
+#             nn.Linear(512, 10))
+        
+#     def forward(self, xb):
+#         return self.network(xb)
+
 class Net(nn.Module):
     def __init__(self):
 	# initialize the network
@@ -81,15 +89,15 @@ class Net(nn.Module):
 	# Max pooling over a (2, 2) window
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(16 * 13 * 13, 120) # 5x5 from image dimension
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)# 5x5 from image dimension
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 4)
+        self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
 	# the forward propagation algorithm
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 13 * 13)
+        x = x.view(-1, 16 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -101,12 +109,15 @@ net = Net()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-for epoch in range(4):  # loop over the dataset multiple times
+for epoch in range(2):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
+
+        imshow(torchvision.utils.make_grid(inputs))
+        print(labels)
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -119,13 +130,13 @@ for epoch in range(4):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 100 == 99:    # print every 100 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
+        if i % 2000 == 1999:    # print every 2000 mini-batches
+            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
             running_loss = 0.0
 
 print('Finished Training')
 
-PATH = './gas_image_net.pth'
+PATH = './cifar_net.pth'
 torch.save(net.state_dict(), PATH)
 
 dataiter = iter(testloader)
@@ -157,7 +168,7 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-print(f'Accuracy of the network on the {total} test images: {100 * correct // total} %')
+print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
 
 # prepare to count predictions for each class
 correct_pred = {classname: 0 for classname in classes}

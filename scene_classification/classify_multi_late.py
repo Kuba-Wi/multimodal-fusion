@@ -121,33 +121,67 @@ class Net(nn.Module):
 
         return out
 
-net = Net()
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(net.parameters(), lr=0.001)
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+with open("training.log", "a") as log_file:
+    log_file.write('\n')
+    log_file.flush()
 
-for epoch in range(4):  # loop over the dataset multiple times
+    net = Net()
 
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        # get the inputs; data is a list of [inputs, labels]
-        sensor, image, labels = data
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
+    for epoch in range(30):  # loop over the dataset multiple times
 
-        # forward + backward + optimize
-        outputs = net(sensor, image)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+        running_loss = 0.0
+        for i, data in enumerate(trainloader, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            sensor, image, labels = data
 
-        # print statistics
-        running_loss += loss.item()
-        if i % 100 == 99:    # print every 100 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
-            running_loss = 0.0
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(sensor, image)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            if i % 100 == 99:    # print every 100 mini-batches
+                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
+                running_loss = 0.0
+
+        correct = 0
+        total = 0
+        # since we're not training, we don't need to calculate the gradients for our outputs
+        with torch.no_grad():
+            for data in testloader:
+                sensors_data, images, labels = data
+                # calculate outputs by running images through the network
+                outputs = net(sensors_data, images)
+                # the class with the highest energy is what we choose as prediction
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+        
+        correct_train = 0
+        total_train = 0
+        # since we're not training, we don't need to calculate the gradients for our outputs
+        with torch.no_grad():
+            for data in trainloader:
+                sensors_data, images, labels = data
+                # calculate outputs by running images through the network
+                outputs = net(sensors_data, images)
+                # the class with the highest energy is what we choose as prediction
+                _, predicted = torch.max(outputs.data, 1)
+                total_train += labels.size(0)
+                correct_train += (predicted == labels).sum().item()
+        log_file.write(f'{epoch}, {correct_train/total_train}, {correct/total}\n')
+        log_file.flush()
+        print(epoch, correct_train/total_train, correct/total)
 
 print('Finished Training')
 
@@ -207,4 +241,3 @@ with torch.no_grad():
 for classname, correct_count in correct_pred.items():
     accuracy = 100 * float(correct_count) / total_pred[classname]
     print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
-

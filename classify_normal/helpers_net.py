@@ -1,0 +1,81 @@
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
+import torch.nn.functional as F
+import torch
+import torch.nn as nn
+import numpy as np
+import pandas as pd
+
+
+class MultimodalDataset(Dataset):
+    def __init__(self, images_path, sensor_data, classes, transform=None):
+        self.transform = transform
+        self.images_path = images_path
+        self.sensor_data = sensor_data
+        self.classes = classes
+
+    def __len__(self):
+        return len(self.sensor_data)
+    
+    def __getitem__(self, idx):
+        sensor_dat = np.array(self.sensor_data[idx][:3], dtype=np.float32)
+        item_class = self.sensor_data[idx][3]
+        image_name = self.sensor_data[idx][4] + '.png'
+        image = Image.open(f'{self.images_path}/{item_class}/{image_name}')
+        sample = (sensor_dat, image, self.classes.index(item_class))
+
+        if self.transform:
+            sample = self.transform(sample)
+        
+        return sample
+    
+    
+class Transform(object):
+    def __call__(self, sample):
+        sensor_data = sample[0]
+        image = sample[1]
+        label = sample[2]
+
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Resize(size=(64, 64), antialias=True),
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        return (torch.from_numpy(sensor_data), transform(image), label)
+
+    
+def buildTrainTestLoader(batch_size):
+    classes = ['Mixture', 'NoGas', 'Perfume', 'Smoke']
+    df = pd.read_csv('../dataset/sensor-data/Gas_Sensors_Measurements.csv')
+    df = df.drop(['Serial Number', 'MQ5', 'MQ7', 'MQ8', 'MQ135'], axis=1)
+    dataset = np.array(df)
+
+    data_nogas = dataset[:1600]
+    data_nogas_train = data_nogas[:1280]
+    data_nogas_test = data_nogas[1280:]
+
+    data_perfume = dataset[1600:3200]
+    data_perfume_train = data_perfume[:1280]
+    data_perfume_test = data_perfume[1280:]
+
+    data_smoke = dataset[3200:4800]
+    data_smoke_train = data_smoke[:1280]
+    data_smoke_test = data_smoke[1280:]
+
+    data_mixture = dataset[4800:]
+    data_mixture_train = data_mixture[:1280]
+    data_mixture_test = data_mixture[1280:]
+
+    train_dataset = np.concatenate((data_nogas_train, data_perfume_train, data_smoke_train, data_mixture_train))
+    np.random.shuffle(train_dataset)
+
+    test_dataset = np.concatenate((data_nogas_test, data_perfume_test, data_smoke_test, data_mixture_test))
+    np.random.shuffle(test_dataset)
+
+    trainset = MultimodalDataset("../data/images", train_dataset, classes, transform=Transform())
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
+
+    testset = MultimodalDataset("../data/images", test_dataset, classes, transform=Transform())
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
+
+    return trainloader, testloader

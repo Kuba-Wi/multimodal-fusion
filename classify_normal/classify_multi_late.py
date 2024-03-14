@@ -49,7 +49,7 @@ class Transform(object):
 batch_size = 4
 classes = ['Mixture', 'NoGas', 'Perfume', 'Smoke']
 
-df = pd.read_csv('dataset/sensor-data/Gas_Sensors_Measurements.csv')
+df = pd.read_csv('../dataset/sensor-data/Gas_Sensors_Measurements.csv')
 df = df.drop(['Serial Number', 'MQ5', 'MQ7', 'MQ8', 'MQ135'], axis=1)
 dataset = np.array(df)
 # dataset = dataset[1:]
@@ -76,10 +76,10 @@ test_dataset = np.concatenate((data_nogas_test, data_perfume_test, data_smoke_te
 np.random.shuffle(test_dataset)
 
 
-trainset = MultimodalDataset("data/images", train_dataset, classes, transform=Transform())
+trainset = MultimodalDataset("../data/images", train_dataset, classes, transform=Transform())
 trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=6)
 
-testset = MultimodalDataset("data/images", test_dataset, classes, transform=Transform())
+testset = MultimodalDataset("../data/images", test_dataset, classes, transform=Transform())
 testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
 
 def imshow(img):
@@ -131,57 +131,34 @@ class Net(nn.Module):
 
         return out
 
-results = []
-with open("results_late.txt", "w") as file:
-    for i  in range(50):
-        net = Net()
+with open("training.log", "a") as log_file:
+    log_file.write('\n')
+    log_file.flush()
+    net = Net()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(net.parameters(), lr=0.001)
-        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    for epoch in range(30):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for i, data in enumerate(trainloader, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            sensor, image, labels = data
 
-        for epoch in range(4):  # loop over the dataset multiple times
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-            running_loss = 0.0
-            for i, data in enumerate(trainloader, 0):
-                # get the inputs; data is a list of [inputs, labels]
-                sensor, image, labels = data
+            # forward + backward + optimize
+            outputs = net(sensor, image)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward + backward + optimize
-                outputs = net(sensor, image)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-
-                # print statistics
-                running_loss += loss.item()
-                if i % 100 == 99:    # print every 100 mini-batches
-                    print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
-                    running_loss = 0.0
-
-        print('Finished Training')
-
-        PATH = './multimodal_net.pth'
-        torch.save(net.state_dict(), PATH)
-
-        dataiter = iter(testloader)
-        sensors_data, images, labels = next(dataiter)
-
-        # print images
-        # imshow(torchvision.utils.make_grid(images))
-        print('GroundTruth: ', ' '.join(f'{classes[labels[j]]:5s}' for j in range(4)))
-
-        net = Net()
-        net.load_state_dict(torch.load(PATH))
-        outputs = net(sensors_data, images)
-
-        _, predicted = torch.max(outputs, 1)
-
-        print('Predicted: ', ' '.join(f'{classes[predicted[j]]:5s}'
-                                    for j in range(4)))
+            # print statistics
+            running_loss += loss.item()
+            if i % 100 == 99:    # print every 100 mini-batches
+                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 100:.3f}')
+                running_loss = 0.0
 
         correct = 0
         total = 0
@@ -195,13 +172,58 @@ with open("results_late.txt", "w") as file:
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+        
+        correct_train = 0
+        total_train = 0
+        # since we're not training, we don't need to calculate the gradients for our outputs
+        with torch.no_grad():
+            for data in trainloader:
+                sensors_data, images, labels = data
+                # calculate outputs by running images through the network
+                outputs = net(sensors_data, images)
+                # the class with the highest energy is what we choose as prediction
+                _, predicted = torch.max(outputs.data, 1)
+                total_train += labels.size(0)
+                correct_train += (predicted == labels).sum().item()
+        log_file.write(f'{epoch}, {correct_train/total_train}, {correct/total}\n')
+        log_file.flush()
+        print(epoch, correct_train/total_train, correct/total)
 
-        print(f'Accuracy of the network on the {total} test data: {100 * correct // total} %')
-        results.append(100 * correct // total)
-        file.write(f"{results[-1]}\n")
+    print('Finished Training')
 
-    avg = sum(results) / len(results)
-    file.write(f"Avg: {avg}\n")
+    PATH = './multimodal_net.pth'
+    torch.save(net.state_dict(), PATH)
+
+    dataiter = iter(testloader)
+    sensors_data, images, labels = next(dataiter)
+
+    # print images
+    # imshow(torchvision.utils.make_grid(images))
+    print('GroundTruth: ', ' '.join(f'{classes[labels[j]]:5s}' for j in range(4)))
+
+    net = Net()
+    net.load_state_dict(torch.load(PATH))
+    outputs = net(sensors_data, images)
+
+    _, predicted = torch.max(outputs, 1)
+
+    print('Predicted: ', ' '.join(f'{classes[predicted[j]]:5s}'
+                                for j in range(4)))
+
+    correct = 0
+    total = 0
+    # since we're not training, we don't need to calculate the gradients for our outputs
+    with torch.no_grad():
+        for data in testloader:
+            sensors_data, images, labels = data
+            # calculate outputs by running images through the network
+            outputs = net(sensors_data, images)
+            # the class with the highest energy is what we choose as prediction
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print(f'Accuracy of the network on the {total} test data: {100 * correct // total} %')
 
 
 # # prepare to count predictions for each class
