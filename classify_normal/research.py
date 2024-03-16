@@ -30,6 +30,8 @@ def run_research(filename, netModel, multiplier, layers_count, activ_fun, opt, l
     print(f"Filename: {filename}")
     try:
         with open(filename, "a") as file:
+            file.write('Accuracy, precision table, precision, f1, time\n')
+            file.flush()
             results_acc = []
             results_prec = []
             results_f1 = []
@@ -45,12 +47,14 @@ def run_research(filename, netModel, multiplier, layers_count, activ_fun, opt, l
                 results_prec.append(precision)
                 results_f1.append(f1)
                 results_time.append(tim)
-                file.write(f'{accuracy}, {precision_table}, {precision}, {f1}\n')
-            file.write('(avg, min, max, std deviation):')
-            file.write(f"accuracy: {sum(results_acc) / ITER_COUNT}, {min(results_acc)}, {max(results_acc)}, {std_dev(results_acc)}")
-            file.write(f"precision: {sum(results_prec) / ITER_COUNT}, {min(results_prec)}, {max(results_prec)}, {std_dev(results_prec)}")
-            file.write(f"f1: {sum(results_f1) / ITER_COUNT}, {min(results_f1)}, {max(results_f1)}, {std_dev(results_f1)}")
-            file.write(f"time: {sum(results_time) / ITER_COUNT}, {min(results_time)}, {max(results_time)}, {std_dev(results_time)}")
+                file.write(f'{accuracy}, {precision_table}, {precision}, {f1}, {tim}\n')
+                file.flush()
+            file.write('(avg, min, max, std deviation):\n')
+            file.write(f"accuracy: {sum(results_acc) / ITER_COUNT}, {min(results_acc)}, {max(results_acc)}, {std_dev(results_acc)}\n")
+            file.write(f"precision: {sum(results_prec) / ITER_COUNT}, {min(results_prec)}, {max(results_prec)}, {std_dev(results_prec)}\n")
+            file.write(f"f1: {sum(results_f1) / ITER_COUNT}, {min(results_f1)}, {max(results_f1)}, {std_dev(results_f1)}\n")
+            file.write(f"time: {sum(results_time) / ITER_COUNT}, {min(results_time)}, {max(results_time)}, {std_dev(results_time)}\n")
+            file.flush()
     except Exception as error:
         print(f"Fail in: {filename}, error: {error}")
 
