@@ -12,31 +12,59 @@ import pandas as pd
 
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, multiplier=1, layers_count=0, activ_fun=F.relu):
         super(Net, self).__init__()
+        self.layers_count = layers_count
+        self.activ_fun = activ_fun
+
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(16 * 13 * 13, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 4)
+        self.fc1 = nn.Linear(16 * 13 * 13, int(120 * multiplier))
+        self.fc2 = nn.Linear(int(120 * multiplier), int(84 * multiplier))
+        self.fc3 = nn.Linear(int(84 * multiplier), 4)
+        if layers_count == -1:
+            self.fc2 = nn.Linear(int(120 * multiplier), 4)
+        elif layers_count == 1:
+            self.fc3 = nn.Linear(int(84 * multiplier), int(42 * multiplier))
+            self.fc4 = nn.Linear(int(42 * multiplier), 4)
 
-        self.fc1_sensor = nn.Linear(3, 64)
-        self.fc2_sensor = nn.Linear(64, 128)
-        self.fc3_sensor = nn.Linear(128, 4)
+        self.fc1_sensor = nn.Linear(3, int(64 * multiplier))
+        self.fc2_sensor = nn.Linear(int(64 * multiplier), int(128 * multiplier))
+        self.fc3_sensor = nn.Linear(int(128 * multiplier), 4)
+        if layers_count == -1:
+            self.fc2_sensor = nn.Linear(int(64 * multiplier), 4)
+        elif layers_count == 1:
+            self.fc3_sensor = nn.Linear(int(128 * multiplier), int(64 * multiplier))
+            self.fc4_sensor = nn.Linear(int(64 * multiplier), 4)
+
         self.fc = nn.Linear(8, 4)
 
     def forward(self, sensor_data, image):
-        image = self.pool(F.relu(self.conv1(image)))
-        image = self.pool(F.relu(self.conv2(image)))
+        image = self.pool(self.activ_fun(self.conv1(image)))
+        image = self.pool(self.activ_fun(self.conv2(image)))
         image = image.view(-1, 16 * 13 * 13)
-        image = F.relu(self.fc1(image))
-        image = F.relu(self.fc2(image))
-        image = self.fc3(image)
+        image = self.activ_fun(self.fc1(image))
+        if self.layers_count == 0:
+            image = self.activ_fun(self.fc2(image))
+            image = self.fc3(image)
+        elif self.layers_count == 1:
+            image = self.activ_fun(self.fc2(image))
+            image = self.activ_fun(self.fc3(image))
+            image = self.fc4(image)
+        elif self.layers_count == -1:
+            image = self.fc2(image)
 
-        sensor_data = F.relu(self.fc1_sensor(sensor_data))
-        sensor_data = F.relu(self.fc2_sensor(sensor_data))
-        sensor_data = self.fc3_sensor(sensor_data)
+        sensor_data = self.activ_fun(self.fc1_sensor(sensor_data))
+        if self.layers_count == 0:
+            sensor_data = self.activ_fun(self.fc2_sensor(sensor_data))
+            sensor_data = self.fc3_sensor(sensor_data)
+        elif self.layers_count == 1:
+            sensor_data = self.activ_fun(self.fc2_sensor(sensor_data))
+            sensor_data = self.activ_fun(self.fc3_sensor(sensor_data))
+            sensor_data = self.fc4_sensor(sensor_data)
+        elif self.layers_count == -1:
+            sensor_data = self.fc2_sensor(sensor_data)
 
         combined = torch.cat([sensor_data, image], dim=1)
         out = self.fc(combined)

@@ -11,35 +11,48 @@ import torch.optim as optim
 import pandas as pd
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, multiplier=1, layers_count=0, activ_fun=F.relu):
         super(Net, self).__init__()
+        self.layers_count = layers_count
+        self.activ_fun = activ_fun
+
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(16 * 13 * 13, 120)
-        self.fc2 = nn.Linear(120, 84)
-        # self.fc3 = nn.Linear(84, 4)
+        self.fc1 = nn.Linear(16 * 13 * 13, int(120 * multiplier))
+        self.fc2 = nn.Linear(int(120 * multiplier), int(84 * multiplier))
 
-        self.fc1_sensor = nn.Linear(3, 64)
-        self.fc2_sensor = nn.Linear(64, 128)
-        # self.fc3_sensor = nn.Linear(128, 4)
+        self.fc1_sensor = nn.Linear(3, int(64 * multiplier))
+        self.fc2_sensor = nn.Linear(int(64 * multiplier), int(128 * multiplier))
 
-        self.fusion = nn.Linear(212, 106)
-        self.fc = nn.Linear(106, 4)
+        self.fusion = nn.Linear(int(212 * multiplier), int(106 * multiplier))
+        self.fc = nn.Linear(int(106 * multiplier), 4)
+        if layers_count == 1:
+            self.fusion2 = nn.Linear(int(106 * multiplier), int(54 * multiplier))
+            self.fc = nn.Linear(int(54 * multiplier), 4)
+        elif layers_count == -1:
+            self.fusion = nn.Linear(int(212 * multiplier), 4)
 
     def forward(self, sensor_data, image):
-        image = self.pool(F.relu(self.conv1(image)))
-        image = self.pool(F.relu(self.conv2(image)))
+        image = self.pool(self.activ_fun(self.conv1(image)))
+        image = self.pool(self.activ_fun(self.conv2(image)))
         image = image.view(-1, 16 * 13 * 13)
-        image = F.relu(self.fc1(image))
-        image = F.relu(self.fc2(image))
+        image = self.activ_fun(self.fc1(image))
+        image = self.activ_fun(self.fc2(image))
 
-        sensor_data = F.relu(self.fc1_sensor(sensor_data))
-        sensor_data = F.relu(self.fc2_sensor(sensor_data))
+        sensor_data = self.activ_fun(self.fc1_sensor(sensor_data))
+        sensor_data = self.activ_fun(self.fc2_sensor(sensor_data))
 
         combined = torch.cat([sensor_data, image], dim=1)
-        fused = F.relu(self.fusion(combined))
-        out = self.fc(fused)
+        if self.layers_count == 0:
+            fused = self.activ_fun(self.fusion(combined))
+            out = self.fc(fused)
+        elif self.layers_count == -1:
+            out = self.fusion(combined)
+        elif self.layers_count == 1:
+            fused = self.activ_fun(self.fusion(combined))
+            fused = self.activ_fun(self.fusion2(combined))
+            out = self.fc(fused)
 
         return out
 

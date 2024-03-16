@@ -11,18 +11,23 @@ import torch.optim as optim
 import pandas as pd
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, multiplier=1, layers_count=0, activ_fun=F.relu):
         super(Net, self).__init__()
+        self.layers_count = layers_count
+        self.activ_fun = activ_fun
+
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(3 + 16 * 13 * 13, 184)
-        self.fc2 = nn.Linear(184, 212)
-        self.fc3 = nn.Linear(212, 106)
-        self.fc4 = nn.Linear(106, 4)
-
-        self.fusion = nn.Linear(212, 106)
-        self.fc = nn.Linear(106, 4)
+        self.fc1 = nn.Linear(3 + 16 * 13 * 13, int(184 * multiplier))
+        self.fc2 = nn.Linear(int(184 * multiplier), int(212 * multiplier))
+        self.fc3 = nn.Linear(int(212 * multiplier), int(106 * multiplier))
+        self.fc4 = nn.Linear(int(106 * multiplier), 4)
+        if layers_count == 1:
+            self.fc4 = nn.Linear(int(106 * multiplier), int(54 * multiplier))
+            self.fc5 = nn.Linear(int(54 * multiplier), 4)
+        elif layers_count == -1:
+            self.fc3 = nn.Linear(int(212 * multiplier), 4)
 
     def forward(self, sensor_data, image):
         image = self.pool(F.relu(self.conv1(image)))
@@ -32,8 +37,15 @@ class Net(nn.Module):
         combined = torch.cat([sensor_data, image], dim=1)
         combined = F.relu(self.fc1(combined))
         combined = F.relu(self.fc2(combined))
-        combined = F.relu(self.fc3(combined))
-        out = self.fc4(combined)
+        if self.layers_count == 0:
+            combined = F.relu(self.fc3(combined))
+            out = self.fc4(combined)
+        elif self.layers_count == 1:
+            combined = F.relu(self.fc3(combined))
+            combined = F.relu(self.fc4(combined))
+            out = self.fc5(combined)
+        elif self.layers_count == -1:
+            out = self.fc3(combined)
 
         return out
 

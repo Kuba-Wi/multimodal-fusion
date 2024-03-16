@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pandas as pd
+import time
 
 
 class MultimodalDataset(Dataset):
@@ -80,20 +81,42 @@ def buildTrainTestLoader(batch_size):
 
     return trainloader, testloader
 
-def getAccuracy(net, dataloader):
+def getAccuracyPrecisionF1time(net, dataloader):
+    tp_table = [0, 0, 0, 0]
+    fp_table = [0, 0, 0, 0]
+    fn_table = [0, 0, 0, 0]
+    precision_table = []
+    recall_table = []
     correct = 0
     total = 0
-    # since we're not training, we don't need to calculate the gradients for our outputs
+    total_time = 0
     with torch.no_grad():
         for data in dataloader:
             sensors_data, images, labels = data
-            # calculate outputs by running images through the network
+            start = time.time()
             outputs = net(sensors_data, images)
-            # the class with the highest energy is what we choose as prediction
             _, predicted = torch.max(outputs.data, 1)
+            end = time.time()
+            pred_time = end - start
             total += labels.size(0)
+            total_time += pred_time
             correct += (predicted == labels).sum().item()
-    return correct / total
+            for i in range(predicted.size(0)):
+                if predicted[i] == labels[i]:
+                    tp_table[labels[i]] += 1
+                else:
+                    fn_table[labels[i]] += 1
+                    fp_table[predicted[i]] += 1
+
+    for i in range(len(tp_table)):
+        precision_table.append(tp_table[i] / (tp_table[i] + fp_table[i]))
+        recall_table.append(tp_table[i] / (tp_table[i] + fn_table[i]))
+
+    precision = sum(precision_table) / len(precision_table)
+    recall = sum(recall_table) / len(recall_table)
+    f1 = 2 * (precision * recall) / (precision + recall)
+
+    return correct / total, precision_table, f1, total_time
 
 def trainNet(net, optim, lr, trainloader, epochCount):
     criterion = nn.CrossEntropyLoss()
