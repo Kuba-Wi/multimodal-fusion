@@ -1,23 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from helpers_net import buildTrainTestLoader
+from helpers_net import buildTrainTestLoader, getAccuracy
 from classify_sensors2 import Net
 
-def getAccuracy(net, dataloader):
-    correct = 0
-    total = 0
-    # since we're not training, we don't need to calculate the gradients for our outputs
-    with torch.no_grad():
-        for data in dataloader:
-            sensors_data, images, labels = data
-            # calculate outputs by running images through the network
-            outputs = net(sensors_data, images)
-            # the class with the highest energy is what we choose as prediction
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    return correct / total
 
 LOG_FILE = 'training_sensors.log'
 trainloader, testloader = buildTrainTestLoader(batch_size=4)

@@ -79,3 +79,41 @@ def buildTrainTestLoader(batch_size):
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=6)
 
     return trainloader, testloader
+
+def getAccuracy(net, dataloader):
+    correct = 0
+    total = 0
+    # since we're not training, we don't need to calculate the gradients for our outputs
+    with torch.no_grad():
+        for data in dataloader:
+            sensors_data, images, labels = data
+            # calculate outputs by running images through the network
+            outputs = net(sensors_data, images)
+            # the class with the highest energy is what we choose as prediction
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return correct / total
+
+def trainNet(net, optim, lr, trainloader, epochCount):
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim(net.parameters(), lr=lr)
+
+    for epoch in range(epochCount):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for i, data in enumerate(trainloader, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            sensor, image, labels = data
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(sensor, image)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+        print(f"Epoch: {epoch + 1}")

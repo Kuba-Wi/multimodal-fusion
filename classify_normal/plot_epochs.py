@@ -6,8 +6,10 @@ def plot_accuracy_log():
     accuracy_train = []
     accuracy_test = []
 
-    with open("training.log", 'r') as file:
+    with open("training_images.log", 'r') as file:
         for line in file:
+            if line == '\n':
+                break
             parts = line.strip().split(', ')
             epochs.append(int(parts[0]))
             accuracy_train.append(float(parts[1]) * 100)

@@ -56,9 +56,9 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 4)
 
-        self.fc1_sensor = nn.Linear(3, 32)
-        self.fc2_sensor = nn.Linear(32, 64)
-        self.fc3_sensor = nn.Linear(64, 4)
+        self.fc1_sensor = nn.Linear(3, 64)
+        self.fc2_sensor = nn.Linear(64, 128)
+        self.fc3_sensor = nn.Linear(128, 4)
         self.fc = nn.Linear(8, 4)
 
     def forward(self, sensor_data, image):
