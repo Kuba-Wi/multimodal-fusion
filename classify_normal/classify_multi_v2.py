@@ -51,7 +51,7 @@ class Net(nn.Module):
             out = self.fusion(combined)
         elif self.layers_count == 1:
             fused = self.activ_fun(self.fusion(combined))
-            fused = self.activ_fun(self.fusion2(combined))
+            fused = self.activ_fun(self.fusion2(fused))
             out = self.fc(fused)
 
         return out

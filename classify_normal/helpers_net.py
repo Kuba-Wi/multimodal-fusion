@@ -108,6 +108,9 @@ def getAccuracyPrecisionF1time(net, dataloader):
                     fn_table[labels[i]] += 1
                     fp_table[predicted[i]] += 1
 
+    print(tp_table)
+    print(fp_table)
+    print(fn_table)
     for i in range(len(tp_table)):
         precision_table.append(tp_table[i] / (tp_table[i] + fp_table[i]))
         recall_table.append(tp_table[i] / (tp_table[i] + fn_table[i]))

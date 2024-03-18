@@ -15,10 +15,10 @@ multipliers = [1, 1.5, 0.5]
 layers_counts = [0, 1, -1]
 activ_funs = [F.relu, F.tanh]
 opts = [optim.Adam, optim.SGD]
-lrs = [0.001, 0.0001, 0.01]
+lrs = [0.001, 0.0001, 0.00001]
 batch_sizes = [4, 32, 128]
 params_list = [multipliers, layers_counts, activ_funs, opts, lrs, batch_sizes]
-params_names = ['layers_count', 'layers_pack', 'activation_fun', 'optimizer', 'learning_rate', 'bach_size']
+params_names = ['layers_pack', 'layers_count', 'activation_fun', 'optimizer', 'learning_rate', 'bach_size']
 
 def std_dev(l):
     mean = sum(l) / len(l) 
@@ -59,19 +59,25 @@ def run_research(filename, netModel, multiplier, layers_count, activ_fun, opt, l
         print(f"Fail in: {filename}, error: {error}")
 
 
-run_research("results/late_fusion.log", classify_multi_late.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
-run_research("results/mid_fusion.log", classify_multi_v2.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
-run_research("results/early_fusion.log", classify_multi_early.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
-for i in range(len(params_list)):
-    params = [x[0] for x in params_list]
-    for j in range(1, len(params_list[i])):
-        params[i] = params_list[i][j]
-        dir_name = "results/" + params_names[i] + str(i) + str(j)
-        try:
-            os.mkdir(dir_name)
-        except:
-            pass
+run_research("results/learning_rate42/early_fusion.log", classify_multi_early.Net, 1, 0, F.relu, optim.Adam, 0.00001, 4)
+run_research("results/learning_rate42/mid_fusion.log", classify_multi_v2.Net, 1, 0, F.relu, optim.Adam, 0.00001, 4)
+run_research("results/learning_rate42/late_fusion.log", classify_multi_late.Net, 1, 0, F.relu, optim.Adam, 0.00001, 4)
 
-        run_research(dir_name + "/late_fusion.log", classify_multi_late.Net, params[0], params[1], params[2], params[3], params[4], params[5])
-        run_research(dir_name + "/mid_fusion.log", classify_multi_v2.Net, params[0], params[1], params[2], params[3], params[4], params[5])
-        run_research(dir_name + "/early_fusion.log", classify_multi_early.Net, params[0], params[1], params[2], params[3], params[4], params[5])
+run_research("results/activation_fun21/early_fusion.log", classify_multi_early.Net, 1, 0, F.tanh, optim.Adam, 0.001, 4)
+
+# run_research("results/late_fusion.log", classify_multi_late.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
+# run_research("results/mid_fusion.log", classify_multi_v2.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
+# run_research("results/early_fusion.log", classify_multi_early.Net, 1, 0, F.relu, optim.Adam, 0.001, 4)
+# for i in range(len(params_list)):
+#     params = [x[0] for x in params_list]
+#     for j in range(1, len(params_list[i])):
+#         params[i] = params_list[i][j]
+#         dir_name = "results/" + params_names[i] + str(i) + str(j)
+#         try:
+#             os.mkdir(dir_name)
+#         except:
+#             pass
+
+#         run_research(dir_name + "/late_fusion.log", classify_multi_late.Net, params[0], params[1], params[2], params[3], params[4], params[5])
+#         run_research(dir_name + "/mid_fusion.log", classify_multi_v2.Net, params[0], params[1], params[2], params[3], params[4], params[5])
+#         run_research(dir_name + "/early_fusion.log", classify_multi_early.Net, params[0], params[1], params[2], params[3], params[4], params[5])

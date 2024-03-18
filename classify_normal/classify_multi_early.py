@@ -30,19 +30,19 @@ class Net(nn.Module):
             self.fc3 = nn.Linear(int(212 * multiplier), 4)
 
     def forward(self, sensor_data, image):
-        image = self.pool(F.relu(self.conv1(image)))
-        image = self.pool(F.relu(self.conv2(image)))
+        image = self.pool(self.activ_fun(self.conv1(image)))
+        image = self.pool(self.activ_fun(self.conv2(image)))
         image = image.view(-1, 16 * 13 * 13)
 
         combined = torch.cat([sensor_data, image], dim=1)
-        combined = F.relu(self.fc1(combined))
-        combined = F.relu(self.fc2(combined))
+        combined = self.activ_fun(self.fc1(combined))
+        combined = self.activ_fun(self.fc2(combined))
         if self.layers_count == 0:
-            combined = F.relu(self.fc3(combined))
+            combined = self.activ_fun(self.fc3(combined))
             out = self.fc4(combined)
         elif self.layers_count == 1:
-            combined = F.relu(self.fc3(combined))
-            combined = F.relu(self.fc4(combined))
+            combined = self.activ_fun(self.fc3(combined))
+            combined = self.activ_fun(self.fc4(combined))
             out = self.fc5(combined)
         elif self.layers_count == -1:
             out = self.fc3(combined)
