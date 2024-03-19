@@ -6,7 +6,7 @@ def plot_accuracy_log():
     accuracy_train = []
     accuracy_test = []
 
-    with open("training_images.log", 'r') as file:
+    with open("../scene_classification/epochs_log/epochs_audio.log", 'r') as file:
         for line in file:
             if line == '\n':
                 break
