@@ -12,20 +12,34 @@ import pandas as pd
 
 
 class Net(nn.Module):
-    def __init__(self, activ_fun):
+    def __init__(self, multiplier, layers_count, activ_fun):
         super(Net, self).__init__()
         self.activ_fun = activ_fun
+        self.multiplier = multiplier
+        self.layers_count = layers_count
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 9)
+        self.fc1 = nn.Linear(16 * 5 * 5, int(120 * multiplier))
+        self.fc2 = nn.Linear(int(120 * multiplier), int(84 * multiplier))
+        self.fc3 = nn.Linear(int(84 * multiplier), 9)
+        if layers_count == -1:
+            self.fc2 = nn.Linear(int(120 * multiplier), 9)
+        elif layers_count == 1:
+            self.fc3 = nn.Linear(int(84 * multiplier), int(42 * multiplier))
+            self.fc4 = nn.Linear(int(42 * multiplier), 9)
 
-        self.fc1_sensor = nn.Linear(10, 128)
-        self.fc2_sensor = nn.Linear(128, 256)
-        self.fc3_sensor = nn.Linear(256, 9)
+        self.fc1_sensor = nn.Linear(10, int(128 * multiplier))
+        self.fc2_sensor = nn.Linear(int(128 * multiplier), int(256 * multiplier))
+        self.fc3_sensor = nn.Linear(int(256 * multiplier), 9)
+
+        if layers_count == -1:
+            self.fc2_sensor = nn.Linear(int(128 * multiplier), 9)
+        elif layers_count == 1:
+            self.fc3_sensor = nn.Linear(int(256 * multiplier), int(128 * multiplier))
+            self.fc4_sensor = nn.Linear(int(128 * multiplier), 9)
+
         self.fc = nn.Linear(18, 9)
 
     def forward(self, audio_data, image):
@@ -33,12 +47,26 @@ class Net(nn.Module):
         image = self.pool(self.activ_fun(self.conv2(image)))
         image = image.view(-1, 16 * 5 * 5)
         image = self.activ_fun(self.fc1(image))
-        image = self.activ_fun(self.fc2(image))
-        image = self.fc3(image)
+        if self.layers_count == 0:
+            image = self.activ_fun(self.fc2(image))
+            image = self.fc3(image)
+        elif self.layers_count == 1:
+            image = self.activ_fun(self.fc2(image))
+            image = self.activ_fun(self.fc3(image))
+            image = self.fc4(image)
+        elif self.layers_count == -1:
+            image = self.fc2(image)
 
         audio_data = self.activ_fun(self.fc1_sensor(audio_data))
-        audio_data = self.activ_fun(self.fc2_sensor(audio_data))
-        audio_data = self.fc3_sensor(audio_data)
+        if self.layers_count == 0:
+            audio_data = self.activ_fun(self.fc2_sensor(audio_data))
+            audio_data = self.fc3_sensor(audio_data)
+        elif self.layers_count == 1:
+            audio_data = self.activ_fun(self.fc2_sensor(audio_data))
+            audio_data = self.activ_fun(self.fc3_sensor(audio_data))
+            audio_data = self.fc4_sensor(audio_data)
+        elif self.layers_count == -1:
+            audio_data = self.fc2_sensor(audio_data)
 
         combined = torch.cat([audio_data, image], dim=1)
         out = self.fc(combined)

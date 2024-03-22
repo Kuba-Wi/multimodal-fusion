@@ -12,18 +12,26 @@ import pandas as pd
 
 
 class Net(nn.Module):
-    def __init__(self, activ_fun):
+    def __init__(self, multiplier, layers_count, activ_fun):
         super(Net, self).__init__()
         self.activ_fun = activ_fun
+        self.multiplier = multiplier
+        self.layers_count = layers_count
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
 
-        self.fc1 = nn.Linear(10 + 16 * 5 * 5, 248)
-        self.fc2 = nn.Linear(248, 340)
-        self.fc3 = nn.Linear(340, 170)
-        self.fc4 = nn.Linear(170, 9)
+        self.fc1 = nn.Linear(10 + 16 * 5 * 5, int(248 * multiplier))
+        self.fc2 = nn.Linear(int(248 * multiplier), int(340 * multiplier))
+        self.fc3 = nn.Linear(int(340 * multiplier), int(170 * multiplier))
+        self.fc4 = nn.Linear(int(170 * multiplier), 9)
+
+        if layers_count == 1:
+            self.fc4 = nn.Linear(int(170 * multiplier), int(86 * multiplier))
+            self.fc5 = nn.Linear(int(86 * multiplier), 9)
+        elif layers_count == -1:
+            self.fc3 = nn.Linear(int(340 * multiplier), 9)
 
     def forward(self, audio_data, image):
         image = self.pool(self.activ_fun(self.conv1(image)))
@@ -33,8 +41,15 @@ class Net(nn.Module):
         combined = torch.cat([audio_data, image], dim=1)
         combined = self.activ_fun(self.fc1(combined))
         combined = self.activ_fun(self.fc2(combined))
-        combined = self.activ_fun(self.fc3(combined))
-        out = self.fc4(combined)
+        if self.layers_count == 0:
+            combined = self.activ_fun(self.fc3(combined))
+            out = self.fc4(combined)
+        elif self.layers_count == 1:
+            combined = self.activ_fun(self.fc3(combined))
+            combined = self.activ_fun(self.fc4(combined))
+            out = self.fc5(combined)
+        elif self.layers_count == -1:
+            out = self.fc3(combined)
 
         return out
 

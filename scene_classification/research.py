@@ -17,8 +17,8 @@ activ_funs = [F.relu, F.tanh]
 opts = [optim.Adam, optim.SGD]
 lrs = [0.001, 0.0001, 0.00001]
 batch_sizes = [4, 32, 128]
-params_list = [activ_funs, opts, lrs, batch_sizes]
-params_names = ['activation_fun', 'optimizer', 'learning_rate', 'batch_size']
+params_list = [multipliers, layers_counts]
+params_names = ['layers_pack', 'layers_count']
 
 def std_dev(l):
     mean = sum(l) / len(l) 
@@ -26,7 +26,7 @@ def std_dev(l):
     std_dev = variance ** 0.5
     return std_dev
 
-def run_research(filename, netModel, activ_fun, opt, lr, batch_size):
+def run_research(filename, netModel, multiplier, layers_count, activ_fun, opt, lr, batch_size):
     print(f"Filename: {filename}")
     try:
         with open(filename, "a") as file:
@@ -39,7 +39,7 @@ def run_research(filename, netModel, activ_fun, opt, lr, batch_size):
             for i in range(ITER_COUNT):
                 print(f"iter: {i + 1}")
                 trainloader, testloader = helpers.buildTrainTestLoader(batch_size)
-                net = netModel(activ_fun)
+                net = netModel(multiplier, layers_count, activ_fun)
                 helpers.trainNet(net, opt, lr, trainloader, EPOCH_COUNT)
                 accuracy, precision_table, f1, tim = helpers.getAccuracyPrecisionF1time(net, testloader)
                 precision = sum(precision_table) / len(precision_table)
@@ -59,9 +59,9 @@ def run_research(filename, netModel, activ_fun, opt, lr, batch_size):
         print(f"Fail in: {filename}, error: {error}")
 
 
-run_research("results/base/late_fusion.log", classify_multi_late.Net, F.relu, optim.Adam, 0.001, 4)
-run_research("results/base/mid_fusion.log", classify_multi_mid.Net, F.relu, optim.Adam, 0.001, 4)
-run_research("results/base/early_fusion.log", classify_multi_early.Net, F.relu, optim.Adam, 0.001, 4)
+# run_research("results/base/late_fusion.log", classify_multi_late.Net, F.relu, optim.Adam, 0.001, 4)
+# run_research("results/base/mid_fusion.log", classify_multi_mid.Net, F.relu, optim.Adam, 0.001, 4)
+# run_research("results/base/early_fusion.log", classify_multi_early.Net, F.relu, optim.Adam, 0.001, 4)
 for i in range(len(params_list)):
     params = [x[0] for x in params_list]
     for j in range(1, len(params_list[i])):
@@ -72,6 +72,6 @@ for i in range(len(params_list)):
         except:
             pass
 
-        run_research(dir_name + "/late_fusion.log", classify_multi_late.Net, params[0], params[1], params[2], params[3])
-        run_research(dir_name + "/mid_fusion.log", classify_multi_mid.Net, params[0], params[1], params[2], params[3])
-        run_research(dir_name + "/early_fusion.log", classify_multi_early.Net, params[0], params[1], params[2], params[3])
+        run_research(dir_name + "/late_fusion.log", classify_multi_late.Net, params[0], params[1], F.relu, optim.Adam, 0.001, 4)
+        run_research(dir_name + "/mid_fusion.log", classify_multi_mid.Net, params[0], params[1], F.relu, optim.Adam, 0.001, 4)
+        run_research(dir_name + "/early_fusion.log", classify_multi_early.Net, params[0], params[1], F.relu, optim.Adam, 0.001, 4)

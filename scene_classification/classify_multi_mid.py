@@ -11,21 +11,29 @@ import torch.optim as optim
 import pandas as pd
 
 class Net(nn.Module):
-    def __init__(self, activ_fun):
+    def __init__(self, multiplier, layers_count, activ_fun):
         super(Net, self).__init__()
         self.activ_fun = activ_fun
+        self.multiplier = multiplier
+        self.layers_count = layers_count
+
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5) 
 
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
+        self.fc1 = nn.Linear(16 * 5 * 5, int(120 * multiplier))
+        self.fc2 = nn.Linear(int(120 * multiplier), int(84 * multiplier))
 
-        self.fc1_sensor = nn.Linear(10, 128)
-        self.fc2_sensor = nn.Linear(128, 256)
+        self.fc1_sensor = nn.Linear(10, int(128 * multiplier))
+        self.fc2_sensor = nn.Linear(int(128 * multiplier), int(256 * multiplier))
 
-        self.fusion = nn.Linear(340, 170)
-        self.fc = nn.Linear(170, 9)
+        self.fusion = nn.Linear(int(340 * multiplier), int(170 * multiplier))
+        self.fc = nn.Linear(int(170 * multiplier), 9)
+        if layers_count == 1:
+            self.fusion2 = nn.Linear(int(170 * multiplier), int(86 * multiplier))
+            self.fc = nn.Linear(int(86 * multiplier), 9)
+        elif layers_count == -1:
+            self.fusion = nn.Linear(int(340 * multiplier), 9)
 
     def forward(self, audio_data, image):
         image = self.pool(self.activ_fun(self.conv1(image)))
@@ -38,8 +46,15 @@ class Net(nn.Module):
         audio_data = self.activ_fun(self.fc2_sensor(audio_data))
 
         combined = torch.cat([audio_data, image], dim=1)
-        fused = self.activ_fun(self.fusion(combined))
-        out = self.fc(fused)
+        if self.layers_count == 0:
+            fused = self.activ_fun(self.fusion(combined))
+            out = self.fc(fused)
+        elif self.layers_count == -1:
+            out = self.fusion(combined)
+        elif self.layers_count == 1:
+            fused = self.activ_fun(self.fusion(combined))
+            fused = self.activ_fun(self.fusion2(fused))
+            out = self.fc(fused)
 
         return out
 
