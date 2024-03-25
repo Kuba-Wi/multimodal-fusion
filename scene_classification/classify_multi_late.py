@@ -9,6 +9,7 @@ import torch.nn as nn
 import numpy as np
 import torch.optim as optim
 import pandas as pd
+from print_audio_correlation import get_correlation_values_sorted
 
 
 class Net(nn.Module):
@@ -80,16 +81,19 @@ if __name__ == '__main__':
             self.images_path = images_path
             self.audio_data = audio_data
             self.classes = classes
+            self.correlation_indexes = get_correlation_values_sorted()
+            length = len(self.correlation_indexes)
+            self.audio_columns = np.concatenate((self.audio_data[:, self.correlation_indexes[i]] for i in range(length // 2 - 10, length // 2 + 10)))
 
         def __len__(self):
             return len(self.audio_data)
         
         def __getitem__(self, idx):
-            sensor_dat = np.array(self.audio_data[idx][1:11], dtype=np.float32)
+            audio_dat = np.array(self.audio_columns[idx], dtype=np.float32)
             item_class = self.audio_data[idx][106]
             image_name = self.audio_data[idx][0]
             image = Image.open(f'{image_name}')
-            sample = (sensor_dat, image, self.classes.index(item_class))
+            sample = (audio_dat, image, self.classes.index(item_class))
 
             if self.transform:
                 sample = self.transform(sample)

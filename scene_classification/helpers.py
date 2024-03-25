@@ -7,6 +7,7 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import time
+from print_audio_correlation import get_correlation_values_sorted
 
 
 class MultimodalDataset(Dataset):
@@ -15,6 +16,17 @@ class MultimodalDataset(Dataset):
         self.images_path = images_path
         self.audio_data = audio_data
         self.classes = classes
+        self.correlation_indexes = get_correlation_values_sorted()
+        # length = len(self.correlation_indexes)
+        # self.audio_columns = (self.audio_data[:][self.correlation_indexes[i][0]] for i in range(10))
+        # print(self.audio_data[0][self.correlation_indexes[0][0]])
+        # print(self.audio_data[:, self.correlation_indexes[0][0]])
+        tmp = self.audio_data[:, self.correlation_indexes[0][0]]
+        length = tmp.shape[0]
+        corr_length = len(self.correlation_indexes)
+        # print([self.audio_data[:, self.correlation_indexes[i][0]] for i in range(10)])
+        self.audio_columns = np.concatenate([self.audio_data[:, self.correlation_indexes[i][0]].reshape(length, 1) for i in range(10)], axis=1)
+        # self.audio_columns = []
 
     def __len__(self):
         return len(self.audio_data)
